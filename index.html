@@ -62,8 +62,8 @@ header p{margin:0;color:var(--mute);font-size:.9rem}
 .hl-chk{fill:url(#gchk)}
 .tgt{fill:rgba(255,212,71,.75)}
 .tgtc{fill:none;stroke:rgba(255,212,71,.85);stroke-width:5}
-.zone{stroke-width:3;stroke-dasharray:10 7;animation:dash 1.2s linear infinite}
-.zone.w{fill:rgba(53,240,138,.10);stroke:var(--w)} .zone.b{fill:rgba(255,154,46,.10);stroke:var(--b)}
+.zone{stroke-width:2;stroke-dasharray:10 7;stroke-opacity:.55;animation:dash 1.6s linear infinite}
+.zone.w{fill:rgba(53,240,138,.06);stroke:var(--w)} .zone.b{fill:rgba(255,154,46,.06);stroke:var(--b)}
 @keyframes dash{to{stroke-dashoffset:-17}}
 .pv{fill:none;stroke-width:3;stroke-dasharray:8 8;opacity:.45;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .pv.w{stroke:var(--w)} .pv.b{stroke:var(--b)}
@@ -211,9 +211,9 @@ h2{font-family:var(--display);font-weight:400;font-size:1.05rem;letter-spacing:.
         <h3>Ход</h3>
         <ol>
           <li>Нажмите на свою фигуру. Над ней появятся её действия.</li>
-          <li>Выберите действие: <b>Ход</b>, <b>Лазер</b>, <b>Защита</b> или <b>Щит</b>.</li>
+          <li>Выберите действие: <b>Ход</b>, <b>Лазер</b>, <b>Щит</b> или <b>Поле</b>.</li>
           <li>Укажите клетку или направление. Для лазера можно нажать стрелку вокруг фигуры или любую клетку на линии выстрела. Пунктир заранее показывает путь луча, крестик отмечает фигуру, которая погибнет.</li>
-          <li>Ход, выстрел и защита завершают ход. Поворот щита ход не тратит.</li>
+          <li>Ход и выстрел завершают ход. Поворот щита и перенос поля коня ход не тратят.</li>
         </ol>
         <p>Зелёные ходят первыми, как белые в классике. Действуют все классические правила: рокировка, взятие на проходе, превращение пешки, шах, мат и пат. Шах ставят только обычными ходами: король неуязвим для лазера.</p>
         <h3>Фигуры</h3>
@@ -221,7 +221,7 @@ h2{font-family:var(--display);font-weight:400;font-size:1.05rem;letter-spacing:.
           <svg viewBox="0 0 100 100"><use href="#pc-Q" class="body" width="100" height="100" style="fill:url(#gw);stroke:#16b860;stroke-width:2.6"/></svg><span><b>Ферзь</b>: ходит или стреляет в 8 направлениях.</span>
           <svg viewBox="0 0 100 100"><use href="#pc-R" width="100" height="100" style="fill:url(#gw);stroke:#16b860;stroke-width:2.6"/></svg><span><b>Ладья</b>: ходит или стреляет по вертикали и горизонтали.</span>
           <svg viewBox="0 0 100 100"><use href="#pc-B" width="100" height="100" style="fill:url(#gw);stroke:#16b860;stroke-width:2.6;color:#0b3d22"/></svg><span><b>Слон</b>: ходит или стреляет по диагоналям.</span>
-          <svg viewBox="0 0 100 100"><use href="#pc-N" width="100" height="100" style="fill:url(#gw);stroke:#16b860;stroke-width:2.6;color:#0b3d22"/></svg><span><b>Конь</b>: ходит или ставит защиту. Поле 3×3 вокруг коня гасит любые лучи, свои тоже, до конца следующего хода соперника.</span>
+          <svg viewBox="0 0 100 100"><use href="#pc-N" width="100" height="100" style="fill:url(#gw);stroke:#16b860;stroke-width:2.6;color:#0b3d22"/></svg><span><b>Конь</b>: ходит. Один ваш конь всегда носит защитное поле: его клетка и 8 соседних закрыты от любых лучей, своих тоже. Поле движется вместе с конём и подсвечено пунктиром. Перенести поле на другого коня можно в любой момент своего хода, ход на это не тратится. Если конь остался один, поле на нём. В начале партии поле у правого коня каждого игрока.</span>
           <svg viewBox="0 0 100 100"><use href="#pc-P" width="100" height="100" style="fill:url(#gw);stroke:#16b860;stroke-width:2.6"/></svg><span><b>Пешка</b>: ходит как обычно и носит зеркальный щит. Щит можно бесплатно повернуть в любое из 8 положений, но не больше чем у двух пешек за ход.</span>
           <svg viewBox="0 0 100 100"><use href="#pc-K" width="100" height="100" style="fill:url(#gw);stroke:#16b860;stroke-width:2.6"/></svg><span><b>Король</b>: только ходит. Лазер ему не вредит и останавливается на нём.</span>
         </div>
@@ -282,7 +282,28 @@ function initState(){
     b[48+c]={id:UID++,t:'P',c:'w',m:false,d:0};
     b[56+c]={id:UID++,t:back[c],c:'w',m:false};
   }
+  b[62].sh=true; b[1].sh=true;
   return {b,turn:'w',ep:-1,prot:[],ply:0,half:0};
+}
+function knightSqs(b){ const o=[]; for(let i=0;i<64;i++){ const p=b[i]; if(p&&p.t==='N'&&p.sh) o.push(i); } return o; }
+/* у каждой стороны поле ровно у одного коня; если активного нет — поле переходит к первому найденному */
+function normalizeShields(b){
+  let hw=false,hb=false,fw=-1,fb=-1;
+  for(let i=0;i<64;i++){ const p=b[i]; if(!p||p.t!=='N') continue;
+    if(p.c==='w'){ if(p.sh){ if(hw) b[i]=Object.assign({},p,{sh:false}); hw=true; } else if(fw<0) fw=i; }
+    else { if(p.sh){ if(hb) b[i]=Object.assign({},p,{sh:false}); hb=true; } else if(fb<0) fb=i; } }
+  if(!hw&&fw>=0) b[fw]=Object.assign({},b[fw],{sh:true});
+  if(!hb&&fb>=0) b[fb]=Object.assign({},b[fb],{sh:true});
+}
+function switchShield(s,sq){
+  const n=Object.assign({},s,{b:s.b.slice()}),col=s.b[sq].c;
+  for(let i=0;i<64;i++){ const p=n.b[i]; if(p&&p.t==='N'&&p.c===col&&p.sh) n.b[i]=Object.assign({},p,{sh:false}); }
+  n.b[sq]=Object.assign({},s.b[sq],{sh:true}); return n;
+}
+function inZone(ks,sq){
+  const r=sq>>3,c=sq&7;
+  for(const k of ks){ if(Math.abs((k>>3)-r)<=1&&Math.abs((k&7)-c)<=1) return true; }
+  return false;
 }
 function isProt(s,sq){
   if(!s.prot.length) return false;
@@ -292,12 +313,12 @@ function isProt(s,sq){
 }
 function traceLaser(s,from,dir){
   let r=from>>3,c=from&7,d=dir;
-  const pts=[[r,c]],refl=[],seen=new Set();
+  const pts=[[r,c]],refl=[],seen=new Set(),ks=knightSqs(s.b);
   for(let step=0;step<400;step++){
     const dr=DIRS[d][0],dc=DIRS[d][1],nr=r+dr,nc=c+dc;
     if(!inB(nr,nc)){ pts.push([r+dr*.5,c+dc*.5]); return {pts,end:'edge',kill:null,refl}; }
     const sq=nr*8+nc;
-    if(isProt(s,sq)){ pts.push([r+dr*.5,c+dc*.5]); return {pts,end:'block',kill:null,refl,at:sq}; }
+    if(inZone(ks,sq)){ pts.push([r+dr*.5,c+dc*.5]); return {pts,end:'block',kill:null,refl,at:sq}; }
     const p=s.b[sq];
     if(p){
       if(p.t==='K'){ pts.push([nr-dr*.3,nc-dc*.3]); return {pts,end:'king',kill:null,refl,at:sq}; }
@@ -383,6 +404,7 @@ function applyAction(s,a,tr){
     n.prot=n.prot.concat([{sq:a.from,owner:me,exp:s.ply+2}]);
   }
   if(n.prot.length) n.prot=n.prot.filter(z=>z.exp>n.ply);
+  if(info.cap&&info.cap.t==='N'||a.promo==='N') normalizeShields(n.b);
   return [n,info];
 }
 function rotateState(s,sq,d){ const n=Object.assign({},s,{b:s.b.slice()}); n.b[sq]=Object.assign({},s.b[sq],{d}); return n; }
@@ -408,7 +430,6 @@ function genActions(s,ai,caps){
       const [n]=applyAction(s,a,tr);
       if(!inCheck(n.b,me)){ res.push({a,n,tr}); if(ai&&!v) passed=true; }
     }
-    if(p.t==='N'&&!caps){ if(chk===null) chk=inCheck(s.b,me); if(!chk){ const a={k:'pr',from:sq}; res.push({a,n:applyAction(s,a)[0]}); } }
   }
   return res;
 }
@@ -474,6 +495,8 @@ function rotOptions(s,used){
     for(let d=0;d<8;d++) if(d!==p.d) out.push({sq:q,id:p.id,d}); }
   return out;
 }
+function swOptions(s){ const out=[]; for(let q=0;q<64;q++){ const p=s.b[q]; if(p&&p.t==='N'&&p.c===s.turn&&!p.sh) out.push({sw:true,sq:q,id:p.id}); } return out; }
+const applyFree=(s,o)=>o.sw?switchShield(s,o.sq):rotateState(s,o.sq,o.d);
 function aiThink(s,level){
   const hard=level==='hard',t0=performance.now();
   const total=hard?3200:1300, rotBudget=hard?1200:500, qd=hard?4:2, margin=hard?0:25;
@@ -481,13 +504,14 @@ function aiThink(s,level){
   nodes=0;
   try{
     deadline=t0+rotBudget;
-    for(let i=0;i<2;i++){
-      const opts=rotOptions(cur,rots.map(x=>x.id)); if(!opts.length) break;
+    let nRot=0,nSw=0;
+    for(let i=0;i<3;i++){
+      const opts=(nRot<2?rotOptions(cur,rots.filter(x=>!x.sw).map(x=>x.id)):[]).concat(nSw?[]:swOptions(cur)); if(!opts.length) break;
       const base=rootSearch(cur,1,hard?3:2,0); if(!base) break;
       let best=null;
-      for(const o of opts){ const r=rootSearch(rotateState(cur,o.sq,o.d),1,hard?3:2,0); if(r&&r.best>base.best+12&&(!best||r.best>best.v)) best=Object.assign({v:r.best},o); }
+      for(const o of opts){ const r=rootSearch(applyFree(cur,o),1,hard?3:2,0); if(r&&r.best>base.best+12&&(!best||r.best>best.v)) best=Object.assign({v:r.best},o); }
       if(!best) break;
-      rots.push(best); cur=rotateState(cur,best.sq,best.d);
+      rots.push(best); cur=applyFree(cur,best); if(best.sw) nSw++; else nRot++;
     }
   }catch(e){ if(e!==TIMEOUT) throw e; }
   deadline=Infinity;
@@ -517,6 +541,7 @@ function loadGame(){
     Object.assign(S,d.S||{}); G.mode=d.mode; G.human=d.human; G.level=d.level; G.flip=G.mode==='pvc'&&G.human==='b';
     G.s=d.s; G.turnStart=d.turnStart||d.s; G.turnLogStart=d.turnLogStart||0; G.hist=d.hist||[]; G.log=d.log||[]; G.over=d.over||null;
     G.last=d.last||null; G.lastStart=d.lastStart||null; G.rotUsed=new Set(d.rot||[]); UID=Math.max(UID,d.uid||0)+1;
+    normalizeShields(G.s.b);
     return true;
   }catch(e){ return false; }
 }
@@ -578,8 +603,9 @@ function renderHL(){
   gHL.innerHTML='';
   const s=G.s;
   if(G.last) for(const q of G.last) cellRect(q,'hl-last');
-  for(const z of s.prot){
-    const zr=z.sq>>3,zc=z.sq&7;
+  for(let zq=0;zq<64;zq++){
+    const zp=s.b[zq]; if(!zp||zp.t!=='N'||!zp.sh) continue;
+    const z={owner:zp.c}, zr=zq>>3,zc=zq&7;
     const c0=Math.max(0,zc-1),c1=Math.min(7,zc+1),r0=Math.max(0,zr-1),r1=Math.min(7,zr+1);
     const xs=[VX(c0),VX(c1)],ys=[VY(r0),VY(r1)];
     el('rect',{x:Math.min(...xs)+3,y:Math.min(...ys)+3,width:(c1-c0+1)*100-6,height:(r1-r0+1)*100-6,rx:14,class:'zone '+z.owner},gHL);
@@ -622,7 +648,7 @@ function renderMenu(){
   const p=G.s.b[UI.sel],L=G.legal.filter(k=>k.a.from===UI.sel),opts=[];
   opts.push({k:'mv',label:'Ход',ok:L.some(k=>k.a.k==='mv')});
   if(SHOOT[p.t]) opts.push({k:'sh',label:'Лазер',ok:L.some(k=>k.a.k==='sh')});
-  if(p.t==='N') opts.push({k:'pr',label:'Защита',ok:L.some(k=>k.a.k==='pr'),sub:'поле 3×3'});
+  if(p.t==='N') opts.push({k:'sw',label:p.sh?'Поле активно':'Поле',ok:!p.sh,sub:p.sh?'у этого коня':'без хода'});
   if(p.t==='P') opts.push({k:'rot',label:'Щит',ok:G.rotUsed.size<2||G.rotUsed.has(p.id),sub:'без хода'});
   m.innerHTML='';
   for(const o of opts){ const b=document.createElement('button'); b.type='button'; b.dataset.k=o.k; b.disabled=!o.ok; b.innerHTML=o.label+(o.sub?`<small>${o.sub}</small>`:''); m.appendChild(b); }
@@ -655,7 +681,7 @@ function renderStatus(){
   else if(UI.sel>=0) h='Выберите действие.';
   else h='Нажмите на свою фигуру.';
   $('#hint').textContent=h;
-  $('#undoBtn').disabled=UI.busy||(!G.hist.length&&!G.rotUsed.size);
+  $('#undoBtn').disabled=UI.busy||(!G.hist.length&&G.log.length<=G.turnLogStart);
 }
 function renderLog(){
   const fill=(ul,limit)=>{
@@ -696,7 +722,7 @@ function describe(s,a,info,n){
     const tr=info.trace; t=`${ABBR[p.t]}${sqName(a.from)} лазер ${ARW[vdir(a.dir)]}`;
     if(tr.refl.length) t+=`, отражений: ${tr.refl.length}`;
     if(info.cap) t+=` ✕ ${NAME[info.cap.t]} ${sqName(info.capSq)}${info.cap.c===p.c?' (своя)':''}`;
-    else t+=tr.end==='block'?' — погашен защитой':tr.end==='king'?' — упёрся в короля':' — мимо';
+    else t+=tr.end==='block'?' — погашен полем коня':tr.end==='king'?' — упёрся в короля':' — мимо';
   } else if(a.k==='pr') t=`К${sqName(a.from)} — защита 3×3`;
   if(inCheck(n.b,n.turn)) t+='+';
   return t;
@@ -771,7 +797,7 @@ function aiTurn(){
     if(tok!==G.token) return;
     const res=aiThink(G.s,G.level);
     UI.thinking=false;
-    for(const r of res.rots){ await wait(380); if(tok!==G.token) return; doRotate(r.sq,r.d); }
+    for(const r of res.rots){ await wait(380); if(tok!==G.token) return; if(r.sw) doSwitch(r.sq); else doRotate(r.sq,r.d); }
     await wait(res.rots.length?380:120); if(tok!==G.token) return;
     if(res.action) perform(res.action); else { UI.busy=false; render(); }
   },60);
@@ -783,9 +809,16 @@ function doRotate(sq,d){
   G.legal=genActions(G.s,false,false);
   render(); saveGame(); haptic('light');
 }
+function doSwitch(sq){
+  const p=G.s.b[sq];
+  G.s=switchShield(G.s,sq);
+  pushLog(p.c,G.s.ply,`К${sqName(sq)} — поле включено`);
+  G.legal=genActions(G.s,false,false);
+  render(); saveGame(); haptic('light');
+}
 function choose(k){
   if(!isHumanTurn()||UI.sel<0) return;
-  if(k==='pr'){ const x=G.legal.find(q=>q.a.k==='pr'&&q.a.from===UI.sel); if(x) perform(x.a); return; }
+  if(k==='sw'){ const sq=UI.sel; UI.sel=-1; UI.act=null; doSwitch(sq); return; }
   UI.act=k; render();
 }
 function dirTowards(from,to){
@@ -838,7 +871,7 @@ $('#menu').addEventListener('click',e=>{ const b=e.target.closest('button'); if(
 
 function undo(){
   if(UI.busy) return;
-  if(G.rotUsed.size){ G.s=G.turnStart; G.log.length=G.turnLogStart; G.rotUsed=new Set(); }
+  if(G.rotUsed.size||G.log.length>G.turnLogStart){ G.s=G.turnStart; G.log.length=G.turnLogStart; G.rotUsed=new Set(); }
   else {
     if(!G.hist.length) return;
     let h=G.hist.pop();
